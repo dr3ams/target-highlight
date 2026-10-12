@@ -16,10 +16,10 @@ It highlights only. It never moves your camera, changes your attacks, or alters 
 
 Everything lives in config/targethighlight-client.toml):
 
-Targeting: hostile-only or any creature, reach bonus, cone angle, how sticky the target is, how long it lingers, scan rate, line-of-sight on/off
-Ring: on/off, size padding, thickness, smoothness, height above the ground
-Marker: on/off, height above the head, size
-Look: colour (hex) and opacity
+- Targeting: hostile-only or any creature, reach bonus, cone angle, how sticky the target is, how long it lingers, scan rate, line-of-sight on/off
+- Ring: on/off, size padding, thickness, smoothness, height above the ground
+- Marker: on/off, height above the head, size
+- Look: colour (hex) and opacity
 
 Prefer a subtle highlight? Lower the opacity or turn off the marker. Want it bolder? Raise the opacity or change the colour.
 
