@@ -60,11 +60,12 @@ public final class TargetRenderer {
         double y = Mth.lerp(partial, target.yo, target.getY()) - cam.y;
         double z = Mth.lerp(partial, target.zo, target.getZ()) - cam.z;
 
-        int rgb = THConfig.colorRgb();
+        Tier tier = TargetSelector.getTier();
+        int rgb = THConfig.colorRgb(tier);
         int r = (rgb >> 16) & 0xFF;
         int g = (rgb >> 8) & 0xFF;
         int b = rgb & 0xFF;
-        int a = THConfig.COLOR_ALPHA.get();
+        int a = THConfig.colorAlpha(tier);
 
         PoseStack stack = event.getPoseStack();
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();

@@ -2,6 +2,8 @@ package com.dreams01.targethighlight;
 
 import net.minecraftforge.common.ForgeConfigSpec;
 
+import java.util.List;
+
 /** All tunable values. File: config/targethighlight-client.toml */
 public final class THConfig {
     public static final ForgeConfigSpec SPEC;
@@ -18,6 +20,12 @@ public final class THConfig {
     public static final ForgeConfigSpec.DoubleValue STICKY_BONUS;
     public static final ForgeConfigSpec.DoubleValue DISTANCE_WEIGHT;
     public static final ForgeConfigSpec.BooleanValue REQUIRE_LINE_OF_SIGHT;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLACKLIST;
+
+    // --- tiers ---
+    public static final ForgeConfigSpec.BooleanValue BOSS_FROM_TAG;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BOSS_IDS;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CUSTOM_IDS;
 
     // --- ground ring ---
     public static final ForgeConfigSpec.BooleanValue RING_ENABLED;
@@ -31,9 +39,13 @@ public final class THConfig {
     public static final ForgeConfigSpec.DoubleValue MARKER_HEIGHT;
     public static final ForgeConfigSpec.DoubleValue MARKER_SIZE;
 
-    // --- colour ---
+    // --- colours (normal tier keeps the original key names) ---
     public static final ForgeConfigSpec.ConfigValue<String> COLOR_HEX;
     public static final ForgeConfigSpec.IntValue COLOR_ALPHA;
+    public static final ForgeConfigSpec.ConfigValue<String> CUSTOM_COLOR_HEX;
+    public static final ForgeConfigSpec.IntValue CUSTOM_COLOR_ALPHA;
+    public static final ForgeConfigSpec.ConfigValue<String> BOSS_COLOR_HEX;
+    public static final ForgeConfigSpec.IntValue BOSS_COLOR_ALPHA;
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
@@ -44,7 +56,8 @@ public final class THConfig {
         b.pop();
 
         b.push("acquisition");
-        HOSTILE_ONLY = b.comment("true = only hostile mobs, false = any living entity except players and armor stands")
+        HOSTILE_ONLY = b.comment("true = only hostile mobs, false = any living entity except players and armor stands. "
+                        + "Entities listed under [tiers] (and bosses from the boss tag) are targetable either way.")
                 .define("hostileOnly", true);
         REACH_BONUS = b.comment("Blocks added on top of the player's entity reach")
                 .defineInRange("reachBonus", 1.0D, 0.0D, 16.0D);
@@ -60,6 +73,20 @@ public final class THConfig {
                 .defineInRange("distanceWeight", 0.5D, 0.0D, 10.0D);
         REQUIRE_LINE_OF_SIGHT = b.comment("Ignore enemies hidden behind blocks (checks head, body and feet, so fences and thin cover don't block it)")
                 .define("requireLineOfSight", true);
+        BLACKLIST = b.comment("Entities that are never highlighted. Entity ids, or \"modid:*\" for every entity of a mod.",
+                        "Example: [\"minecraft:villager\", \"guardvillagers:*\"]")
+                .<String>defineListAllowEmpty("blacklist", List.of(), THConfig::isString);
+        b.pop();
+
+        b.push("tiers");
+        BOSS_FROM_TAG = b.comment("Treat entities in the forge:bosses entity tag as bosses (many mods tag their bosses)")
+                .define("bossFromTag", true);
+        BOSS_IDS = b.comment("Extra entity ids to treat as bosses (boss colour). Entity ids, or \"modid:*\".",
+                        "Example: [\"cataclysm:ignis\", \"mowziesmobs:*\"]")
+                .<String>defineListAllowEmpty("bossIds", List.of("minecraft:ender_dragon", "minecraft:wither"), THConfig::isString);
+        CUSTOM_IDS = b.comment("Entity ids that get the custom colour (e.g. minibosses or elites). Entity ids, or \"modid:*\".",
+                        "A boss entry wins over a custom entry.")
+                .<String>defineListAllowEmpty("customIds", List.of("minecraft:elder_guardian", "minecraft:warden"), THConfig::isString);
         b.pop();
 
         b.push("ring");
@@ -85,30 +112,68 @@ public final class THConfig {
         b.pop();
 
         b.push("color");
-        COLOR_HEX = b.comment("Ring and marker colour as RRGGBB hex")
-                .define("hex", "FFD75A", o -> o instanceof String s && s.matches("[0-9a-fA-F]{6}"));
-        COLOR_ALPHA = b.comment("Opacity 0-255")
+        COLOR_HEX = b.comment("Colour of normal enemies (ring and marker) as RRGGBB hex")
+                .define("hex", "FFD75A", THConfig::isHex);
+        COLOR_ALPHA = b.comment("Opacity of normal enemies, 0-255")
                 .defineInRange("alpha", 100, 0, 255);
+        CUSTOM_COLOR_HEX = b.comment("Colour of enemies listed under customIds, RRGGBB hex")
+                .define("customHex", "5AC8FF", THConfig::isHex);
+        CUSTOM_COLOR_ALPHA = b.comment("Opacity of custom-tier enemies, 0-255")
+                .defineInRange("customAlpha", 100, 0, 255);
+        BOSS_COLOR_HEX = b.comment("Colour of bosses, RRGGBB hex")
+                .define("bossHex", "FF5050", THConfig::isHex);
+        BOSS_COLOR_ALPHA = b.comment("Opacity of bosses, 0-255")
+                .defineInRange("bossAlpha", 140, 0, 255);
         b.pop();
 
         SPEC = b.build();
     }
 
-    private static String cachedHex = "";
-    private static int cachedRgb = 0xFFD75A;
+    private static boolean isString(Object o) {
+        return o instanceof String;
+    }
 
-    /** Parsed colour as 0xRRGGBB, cached so we don't re-parse every frame. */
-    public static int colorRgb() {
-        String hex = COLOR_HEX.get();
-        if (!hex.equals(cachedHex)) {
-            try {
-                cachedRgb = Integer.parseInt(hex, 16);
-            } catch (NumberFormatException e) {
-                cachedRgb = 0xFFD75A;
-            }
-            cachedHex = hex;
+    private static boolean isHex(Object o) {
+        return o instanceof String && ((String) o).matches("[0-9a-fA-F]{6}");
+    }
+
+    // index = Tier.ordinal(): NORMAL, CUSTOM, BOSS
+    private static final int[] FALLBACK_RGB = {0xFFD75A, 0x5AC8FF, 0xFF5050};
+    private static final String[] cachedHex = {"", "", ""};
+    private static final int[] cachedRgb = {0xFFD75A, 0x5AC8FF, 0xFF5050};
+
+    /** Colour of a tier as 0xRRGGBB, cached so we don't re-parse every frame. */
+    public static int colorRgb(Tier tier) {
+        int i = tier.ordinal();
+        String hex;
+        if (tier == Tier.BOSS) {
+            hex = BOSS_COLOR_HEX.get();
+        } else if (tier == Tier.CUSTOM) {
+            hex = CUSTOM_COLOR_HEX.get();
+        } else {
+            hex = COLOR_HEX.get();
         }
-        return cachedRgb;
+
+        if (!hex.equals(cachedHex[i])) {
+            try {
+                cachedRgb[i] = Integer.parseInt(hex, 16);
+            } catch (NumberFormatException e) {
+                cachedRgb[i] = FALLBACK_RGB[i];
+            }
+            cachedHex[i] = hex;
+        }
+        return cachedRgb[i];
+    }
+
+    /** Opacity of a tier, 0-255. */
+    public static int colorAlpha(Tier tier) {
+        if (tier == Tier.BOSS) {
+            return BOSS_COLOR_ALPHA.get();
+        }
+        if (tier == Tier.CUSTOM) {
+            return CUSTOM_COLOR_ALPHA.get();
+        }
+        return COLOR_ALPHA.get();
     }
 
     private THConfig() {

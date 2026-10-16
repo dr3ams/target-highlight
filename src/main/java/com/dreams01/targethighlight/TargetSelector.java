@@ -24,6 +24,7 @@ public final class TargetSelector {
     private static LivingEntity target;
     private static int tickCounter;
     private static int lastSeenTick;
+    private static Tier tier = Tier.NORMAL;
 
     private TargetSelector() {
     }
@@ -31,6 +32,11 @@ public final class TargetSelector {
     /** Current target, or null. Safe to call every frame. */
     public static LivingEntity getTarget() {
         return target;
+    }
+
+    /** Colour tier of the current target. */
+    public static Tier getTier() {
+        return tier;
     }
 
     public static void clear() {
@@ -56,6 +62,7 @@ public final class TargetSelector {
         LivingEntity found = acquire(mc.player, mc.level);
         if (found != null) {
             target = found;
+            tier = EntityClassifier.classify(found);
             lastSeenTick = tickCounter;
         } else if (target != null && tickCounter - lastSeenTick > THConfig.LOSE_GRACE_TICKS.get()) {
             target = null;
@@ -122,7 +129,14 @@ public final class TargetSelector {
         if (!e.isAlive() || e.isInvisible() || e == player.getVehicle()) {
             return false;
         }
-        return !hostileOnly || e instanceof Enemy;
+        if (EntityClassifier.isBlacklisted(e)) {
+            return false;
+        }
+        if (!hostileOnly || e instanceof Enemy) {
+            return true;
+        }
+        // hostile-only still allows entities listed as boss/custom, or tagged as bosses
+        return EntityClassifier.classify(e) != Tier.NORMAL;
     }
 
     /**
