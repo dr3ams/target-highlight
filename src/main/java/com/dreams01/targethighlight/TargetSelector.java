@@ -25,6 +25,7 @@ public final class TargetSelector {
     private static int tickCounter;
     private static int lastSeenTick;
     private static Tier tier = Tier.NORMAL;
+    private static boolean inReach;
 
     private TargetSelector() {
     }
@@ -39,12 +40,27 @@ public final class TargetSelector {
         return tier;
     }
 
+    /** True while the current target is inside the player's real weapon reach. */
+    public static boolean isInReach() {
+        return inReach;
+    }
+
     public static void clear() {
         target = null;
     }
 
     public static void tick(Minecraft mc) {
+        updateTarget(mc);
+        inReach = target != null && mc.player != null && computeInReach(mc.player, target);
+    }
+
+    private static void updateTarget(Minecraft mc) {
         if (!THConfig.ENABLED.get() || mc.player == null || mc.level == null || mc.player.isSpectator()) {
+            target = null;
+            return;
+        }
+
+        if (THConfig.WEAPON_ONLY.get() && !WeaponCheck.isHoldingWeapon(mc.player)) {
             target = null;
             return;
         }
@@ -67,6 +83,35 @@ public final class TargetSelector {
         } else if (target != null && tickCounter - lastSeenTick > THConfig.LOSE_GRACE_TICKS.get()) {
             target = null;
         }
+    }
+
+    /**
+     * True when the target's hitbox is within weapon reach. With Better Combat installed and a Better Combat
+     * weapon in hand, this uses the weapon's own attack range, measured from shoulder height like Better Combat
+     * does. Otherwise it uses the vanilla entity reach, measured from the eyes.
+     */
+    private static boolean computeInReach(Player player, LivingEntity e) {
+        if (THConfig.IN_REACH_MODE.get() == ReachMode.OFF) {
+            return false;
+        }
+
+        double reach = player.getAttributeValue(ForgeMod.ENTITY_REACH.get());
+        Vec3 origin = player.getEyePosition();
+
+        if (THConfig.IN_REACH_USE_BETTER_COMBAT.get()) {
+            double bcRange = BetterCombatCompat.getAttackRange(player.getMainHandItem());
+            if (bcRange > 0.0D) {
+                reach = bcRange;
+                origin = origin.subtract(0.0D, player.getBbHeight() * 0.15D, 0.0D);
+            }
+        }
+        reach += THConfig.IN_REACH_EXTRA.get();
+
+        AABB bb = e.getBoundingBox();
+        double dx = Math.max(Math.max(bb.minX - origin.x, 0.0D), origin.x - bb.maxX);
+        double dy = Math.max(Math.max(bb.minY - origin.y, 0.0D), origin.y - bb.maxY);
+        double dz = Math.max(Math.max(bb.minZ - origin.z, 0.0D), origin.z - bb.maxZ);
+        return dx * dx + dy * dy + dz * dz <= reach * reach;
     }
 
     private static LivingEntity acquire(Player player, ClientLevel level) {

@@ -27,6 +27,19 @@ public final class THConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BOSS_IDS;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CUSTOM_IDS;
 
+    // --- in-reach indicator ---
+    public static final ForgeConfigSpec.EnumValue<ReachMode> IN_REACH_MODE;
+    public static final ForgeConfigSpec.IntValue IN_REACH_ALPHA_BOOST;
+    public static final ForgeConfigSpec.ConfigValue<String> IN_REACH_HEX;
+    public static final ForgeConfigSpec.DoubleValue IN_REACH_EXTRA;
+    public static final ForgeConfigSpec.BooleanValue IN_REACH_USE_BETTER_COMBAT;
+
+    // --- weapon-only mode ---
+    public static final ForgeConfigSpec.BooleanValue WEAPON_ONLY;
+    public static final ForgeConfigSpec.BooleanValue WEAPON_INCLUDE_RANGED;
+    public static final ForgeConfigSpec.BooleanValue WEAPON_INCLUDE_AXES;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> WEAPON_EXTRA_ITEMS;
+
     // --- ground ring ---
     public static final ForgeConfigSpec.BooleanValue RING_ENABLED;
     public static final ForgeConfigSpec.DoubleValue RING_PADDING;
@@ -126,6 +139,33 @@ public final class THConfig {
                 .defineInRange("bossAlpha", 140, 0, 255);
         b.pop();
 
+        b.push("inReach");
+        IN_REACH_MODE = b.comment("How the ring shows that the target is inside your real weapon reach (not just the assist range).",
+                        "OFF = no change, BRIGHTEN = the ring gets more opaque, COLOR = the ring uses the colour below.")
+                .defineEnum("mode", ReachMode.BRIGHTEN);
+        IN_REACH_ALPHA_BOOST = b.comment("BRIGHTEN: opacity added to the ring while in reach (0-255, result capped at 255)")
+                .defineInRange("alphaBoost", 90, 0, 255);
+        IN_REACH_HEX = b.comment("COLOR: ring colour while in reach, RRGGBB hex")
+                .define("hex", "7CFF7C", THConfig::isHex);
+        IN_REACH_EXTRA = b.comment("Blocks added to the reach used for this check (vanilla reach, or the Better Combat attack range). Negative values allowed.")
+                .defineInRange("rangeExtra", 0.0D, -4.0D, 4.0D);
+        IN_REACH_USE_BETTER_COMBAT = b.comment("If Better Combat is installed, use the held weapon's own attack range instead of the vanilla entity reach, "
+                        + "and measure from shoulder height like Better Combat does. Has no effect when Better Combat is missing.")
+                .define("useBetterCombat", true);
+        b.pop();
+
+        b.push("weaponOnly");
+        WEAPON_ONLY = b.comment("Only show the highlight while the main hand holds a weapon, so it stays quiet when mining or building")
+                .define("enabled", false);
+        WEAPON_INCLUDE_RANGED = b.comment("Count bows, crossbows and tridents as weapons")
+                .define("includeRanged", true);
+        WEAPON_INCLUDE_AXES = b.comment("Count axes as weapons")
+                .define("includeAxes", true);
+        WEAPON_EXTRA_ITEMS = b.comment("Extra item ids that count as weapons (modded weapons are not always recognised). Item ids, or \"modid:*\".",
+                        "Example: [\"simplyswords:*\", \"ars_nouveau:novice_spell_book\"]")
+                .<String>defineListAllowEmpty("extraItems", List.of(), THConfig::isString);
+        b.pop();
+
         SPEC = b.build();
     }
 
@@ -174,6 +214,23 @@ public final class THConfig {
             return CUSTOM_COLOR_ALPHA.get();
         }
         return COLOR_ALPHA.get();
+    }
+
+    private static String cachedReachHex = "";
+    private static int cachedReachRgb = 0x7CFF7C;
+
+    /** In-reach ring colour as 0xRRGGBB (COLOR mode), cached. */
+    public static int inReachRgb() {
+        String hex = IN_REACH_HEX.get();
+        if (!hex.equals(cachedReachHex)) {
+            try {
+                cachedReachRgb = Integer.parseInt(hex, 16);
+            } catch (NumberFormatException e) {
+                cachedReachRgb = 0x7CFF7C;
+            }
+            cachedReachHex = hex;
+        }
+        return cachedReachRgb;
     }
 
     private THConfig() {

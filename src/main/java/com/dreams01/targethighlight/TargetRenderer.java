@@ -75,10 +75,23 @@ public final class TargetRenderer {
         stack.translate(x, y, z);
         Matrix4f m = stack.last().pose();
 
+        // The ring also shows whether the target is inside real weapon reach
+        int ringRgb = rgb;
+        int ringAlpha = a;
+        if (TargetSelector.isInReach()) {
+            ReachMode mode = THConfig.IN_REACH_MODE.get();
+            if (mode == ReachMode.BRIGHTEN) {
+                ringAlpha = Math.min(255, a + THConfig.IN_REACH_ALPHA_BOOST.get());
+            } else if (mode == ReachMode.COLOR) {
+                ringRgb = THConfig.inReachRgb();
+            }
+        }
+
         if (ring) {
             double radius = target.getBbWidth() * 0.5D + THConfig.RING_PADDING.get();
             drawRing(vc, m, radius, THConfig.RING_THICKNESS.get(), THConfig.RING_SEGMENTS.get(),
-                    THConfig.RING_Y_OFFSET.get().floatValue(), r, g, b, a);
+                    THConfig.RING_Y_OFFSET.get().floatValue(),
+                    (ringRgb >> 16) & 0xFF, (ringRgb >> 8) & 0xFF, ringRgb & 0xFF, ringAlpha);
         }
 
         if (marker) {
