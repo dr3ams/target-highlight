@@ -6,6 +6,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -26,6 +27,9 @@ public final class TargetSelector {
     private static int lastSeenTick;
     private static Tier tier = Tier.NORMAL;
     private static boolean inReach;
+    private static boolean rangedActive;
+    private static float charge;
+    private static int rangedUntil = -1;
 
     private TargetSelector() {
     }
@@ -45,27 +49,70 @@ public final class TargetSelector {
         return inReach;
     }
 
+    /** True while ranged mode is active (aiming a ranged weapon, plus the linger time). */
+    public static boolean isRangedActive() {
+        return rangedActive;
+    }
+
+    /** Draw progress of the ranged weapon, 0 to 1. Only meaningful while ranged mode is active. */
+    public static float getCharge() {
+        return charge;
+    }
+
     public static void clear() {
         target = null;
+        resetRanged();
+    }
+
+    private static void resetRanged() {
+        rangedActive = false;
+        charge = 0.0F;
+        rangedUntil = -1;
+    }
+
+    private static void updateRangedState(Player player, ItemStack held, boolean rangedItem) {
+        if (!rangedItem) {
+            resetRanged();
+            return;
+        }
+        boolean aiming = THConfig.RANGED_TRIGGER.get() == RangedTrigger.HOLDING || RangedCheck.isAiming(player, held);
+        if (aiming) {
+            rangedUntil = tickCounter + THConfig.RANGED_LINGER_TICKS.get();
+        }
+        rangedActive = tickCounter <= rangedUntil;
+        charge = rangedActive ? RangedCheck.drawProgress(player, held) : 0.0F;
     }
 
     public static void tick(Minecraft mc) {
         updateTarget(mc);
-        inReach = target != null && mc.player != null && computeInReach(mc.player, target);
+        if (target == null || mc.player == null) {
+            inReach = false;
+        } else if (rangedActive) {
+            // in ranged mode "in reach" means the weapon is fully drawn
+            inReach = charge >= 0.999F;
+        } else {
+            inReach = computeInReach(mc.player, target);
+        }
     }
 
     private static void updateTarget(Minecraft mc) {
         if (!THConfig.ENABLED.get() || mc.player == null || mc.level == null || mc.player.isSpectator()) {
             target = null;
+            resetRanged();
             return;
         }
 
-        if (THConfig.WEAPON_ONLY.get() && !WeaponCheck.isHoldingWeapon(mc.player)) {
+        ItemStack held = mc.player.getMainHandItem();
+        boolean rangedItem = THConfig.RANGED_ENABLED.get() && RangedCheck.isRangedWeapon(held);
+
+        if (THConfig.WEAPON_ONLY.get() && !rangedItem && !WeaponCheck.isHoldingWeapon(mc.player)) {
             target = null;
+            resetRanged();
             return;
         }
 
         tickCounter++;
+        updateRangedState(mc.player, held, rangedItem);
 
         if (target != null && (!target.isAlive() || target.isRemoved())) {
             target = null;
@@ -115,8 +162,16 @@ public final class TargetSelector {
     }
 
     private static LivingEntity acquire(Player player, ClientLevel level) {
-        double range = player.getAttributeValue(ForgeMod.ENTITY_REACH.get()) + THConfig.REACH_BONUS.get();
-        double cosCone = Math.cos(Math.toRadians(THConfig.CONE_HALF_ANGLE.get()));
+        double range;
+        double coneDegrees;
+        if (rangedActive) {
+            range = THConfig.RANGED_RANGE.get();
+            coneDegrees = THConfig.RANGED_CONE_HALF_ANGLE.get();
+        } else {
+            range = player.getAttributeValue(ForgeMod.ENTITY_REACH.get()) + THConfig.REACH_BONUS.get();
+            coneDegrees = THConfig.CONE_HALF_ANGLE.get();
+        }
+        double cosCone = Math.cos(Math.toRadians(coneDegrees));
         double sticky = THConfig.STICKY_BONUS.get();
         double distWeight = THConfig.DISTANCE_WEIGHT.get();
         boolean hostileOnly = THConfig.HOSTILE_ONLY.get();

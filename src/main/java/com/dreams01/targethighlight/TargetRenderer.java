@@ -75,11 +75,25 @@ public final class TargetRenderer {
         stack.translate(x, y, z);
         Matrix4f m = stack.last().pose();
 
-        // The ring also shows whether the target is inside real weapon reach
+        // In ranged mode the highlight grows with distance so it stays readable at bow range
+        double dist = Math.sqrt(x * x + y * y + z * z);
+        double scale = 1.0D;
+        if (TargetSelector.isRangedActive() && THConfig.RANGED_SCALE_WITH_DISTANCE.get()) {
+            scale = Mth.clamp(dist / 6.0D, 1.0D, THConfig.RANGED_MAX_SCALE.get());
+        }
+
+        // The ring shows whether the target is in weapon reach, or how far the bow is drawn
         int ringRgb = rgb;
         int ringAlpha = a;
-        if (TargetSelector.isInReach()) {
-            ReachMode mode = THConfig.IN_REACH_MODE.get();
+        ReachMode mode = THConfig.IN_REACH_MODE.get();
+        if (TargetSelector.isRangedActive() && THConfig.RANGED_CHARGE_BRIGHTNESS.get()) {
+            float charge = TargetSelector.getCharge();
+            if (mode == ReachMode.BRIGHTEN) {
+                ringAlpha = Math.min(255, a + Math.round(THConfig.IN_REACH_ALPHA_BOOST.get() * charge));
+            } else if (mode == ReachMode.COLOR && charge >= 0.999F) {
+                ringRgb = THConfig.inReachRgb();
+            }
+        } else if (TargetSelector.isInReach()) {
             if (mode == ReachMode.BRIGHTEN) {
                 ringAlpha = Math.min(255, a + THConfig.IN_REACH_ALPHA_BOOST.get());
             } else if (mode == ReachMode.COLOR) {
@@ -88,17 +102,18 @@ public final class TargetRenderer {
         }
 
         if (ring) {
-            double radius = target.getBbWidth() * 0.5D + THConfig.RING_PADDING.get();
-            drawRing(vc, m, radius, THConfig.RING_THICKNESS.get(), THConfig.RING_SEGMENTS.get(),
+            double radius = target.getBbWidth() * 0.5D + THConfig.RING_PADDING.get() * scale;
+            drawRing(vc, m, radius, THConfig.RING_THICKNESS.get() * scale, THConfig.RING_SEGMENTS.get(),
                     THConfig.RING_Y_OFFSET.get().floatValue(),
                     (ringRgb >> 16) & 0xFF, (ringRgb >> 8) & 0xFF, ringRgb & 0xFF, ringAlpha);
         }
 
         if (marker) {
             float time = (mc.level != null ? mc.level.getGameTime() : 0L) + partial;
-            float bob = (float) Math.sin(time * 0.15F) * 0.05F;
-            float cy = target.getBbHeight() + THConfig.MARKER_HEIGHT.get().floatValue() + bob;
-            drawMarker(vc, m, camera, cy, THConfig.MARKER_SIZE.get().floatValue(), r, g, b, a);
+            float s = (float) scale;
+            float bob = (float) Math.sin(time * 0.15F) * 0.05F * s;
+            float cy = target.getBbHeight() + THConfig.MARKER_HEIGHT.get().floatValue() * s + bob;
+            drawMarker(vc, m, camera, cy, THConfig.MARKER_SIZE.get().floatValue() * s, r, g, b, a);
         }
 
         stack.popPose();

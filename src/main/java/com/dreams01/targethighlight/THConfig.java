@@ -40,6 +40,17 @@ public final class THConfig {
     public static final ForgeConfigSpec.BooleanValue WEAPON_INCLUDE_AXES;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> WEAPON_EXTRA_ITEMS;
 
+    // --- ranged mode ---
+    public static final ForgeConfigSpec.BooleanValue RANGED_ENABLED;
+    public static final ForgeConfigSpec.EnumValue<RangedTrigger> RANGED_TRIGGER;
+    public static final ForgeConfigSpec.IntValue RANGED_LINGER_TICKS;
+    public static final ForgeConfigSpec.DoubleValue RANGED_RANGE;
+    public static final ForgeConfigSpec.DoubleValue RANGED_CONE_HALF_ANGLE;
+    public static final ForgeConfigSpec.BooleanValue RANGED_SCALE_WITH_DISTANCE;
+    public static final ForgeConfigSpec.DoubleValue RANGED_MAX_SCALE;
+    public static final ForgeConfigSpec.BooleanValue RANGED_CHARGE_BRIGHTNESS;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> RANGED_EXTRA_ITEMS;
+
     // --- ground ring ---
     public static final ForgeConfigSpec.BooleanValue RING_ENABLED;
     public static final ForgeConfigSpec.DoubleValue RING_PADDING;
@@ -163,6 +174,28 @@ public final class THConfig {
                 .define("includeAxes", true);
         WEAPON_EXTRA_ITEMS = b.comment("Extra item ids that count as weapons (modded weapons are not always recognised). Item ids, or \"modid:*\".",
                         "Example: [\"simplyswords:*\", \"ars_nouveau:novice_spell_book\"]")
+                .<String>defineListAllowEmpty("extraItems", List.of(), THConfig::isString);
+        b.pop();
+
+        b.push("ranged");
+        RANGED_ENABLED = b.comment("Ranged mode: while aiming a bow, crossbow, trident or listed item, use a longer range and a narrower cone, and show the draw progress on the ring")
+                .define("enabled", true);
+        RANGED_TRIGGER = b.comment("AIMING = only while drawing, charging, or holding a loaded crossbow. HOLDING = whenever a ranged weapon is held.")
+                .defineEnum("trigger", RangedTrigger.AIMING);
+        RANGED_LINGER_TICKS = b.comment("Ticks to keep ranged mode after you stop aiming, so the highlight doesn't flicker (10 = 0.5 s)")
+                .defineInRange("lingerTicks", 10, 0, 100);
+        RANGED_RANGE = b.comment("Search range in blocks while in ranged mode")
+                .defineInRange("range", 40.0D, 5.0D, 128.0D);
+        RANGED_CONE_HALF_ANGLE = b.comment("Half-angle of the acquisition cone in ranged mode, in degrees. Narrower than melee because small aim errors matter at distance")
+                .defineInRange("coneHalfAngle", 7.0D, 1.0D, 45.0D);
+        RANGED_SCALE_WITH_DISTANCE = b.comment("Enlarge the ring and marker with distance in ranged mode so they stay readable")
+                .define("scaleWithDistance", true);
+        RANGED_MAX_SCALE = b.comment("Largest size multiplier from distance scaling (reached at about 6 blocks times this value)")
+                .defineInRange("maxScale", 4.0D, 1.0D, 8.0D);
+        RANGED_CHARGE_BRIGHTNESS = b.comment("The ring follows the draw progress: BRIGHTEN mode fades it up while drawing, COLOR mode switches colour at full draw (see [inReach])")
+                .define("chargeBrightness", true);
+        RANGED_EXTRA_ITEMS = b.comment("Extra item ids treated as ranged weapons, such as spell casters or modded launchers. Item ids, or \"modid:*\". They count as aiming while the item is in use.",
+                        "Example: [\"ars_nouveau:novice_spell_book\", \"somemod:*\"]")
                 .<String>defineListAllowEmpty("extraItems", List.of(), THConfig::isString);
         b.pop();
 
