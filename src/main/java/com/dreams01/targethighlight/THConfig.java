@@ -65,6 +65,18 @@ public final class THConfig {
     public static final ForgeConfigSpec.DoubleValue ZOOM_MAX;
     public static final ForgeConfigSpec.DoubleValue ZOOM_SPEED;
 
+    // --- floating damage numbers ---
+    public static final ForgeConfigSpec.BooleanValue DAMAGE_ENABLED;
+    public static final ForgeConfigSpec.BooleanValue DAMAGE_ONLY_TARGET;
+    public static final ForgeConfigSpec.DoubleValue DAMAGE_MIN;
+    public static final ForgeConfigSpec.DoubleValue DAMAGE_RANGE;
+    public static final ForgeConfigSpec.IntValue DAMAGE_DURATION;
+    public static final ForgeConfigSpec.DoubleValue DAMAGE_SCALE;
+    public static final ForgeConfigSpec.ConfigValue<String> DAMAGE_HEX;
+    public static final ForgeConfigSpec.IntValue DAMAGE_BIG_PERCENT;
+    public static final ForgeConfigSpec.ConfigValue<String> DAMAGE_BIG_HEX;
+    public static final ForgeConfigSpec.BooleanValue DAMAGE_SHOW_HEALING;
+
     // --- ground ring ---
     public static final ForgeConfigSpec.BooleanValue RING_ENABLED;
     public static final ForgeConfigSpec.DoubleValue RING_PADDING;
@@ -72,6 +84,8 @@ public final class THConfig {
     public static final ForgeConfigSpec.IntValue RING_SEGMENTS;
     public static final ForgeConfigSpec.DoubleValue RING_Y_OFFSET;
     public static final ForgeConfigSpec.BooleanValue RING_HEALTH_TINT;
+    public static final ForgeConfigSpec.EnumValue<RingStyle> RING_STYLE;
+    public static final ForgeConfigSpec.DoubleValue RING_ROTATION_SPEED;
 
     // --- head marker ---
     public static final ForgeConfigSpec.BooleanValue MARKER_ENABLED;
@@ -143,6 +157,12 @@ public final class THConfig {
         RING_HEALTH_TINT = b.comment("Tint the ring from green (full health) through yellow to red (low health) instead of using the tier colour.",
                         "While the target is in reach, inReach mode COLOR still overrides this colour.")
                 .define("healthTint", true);
+        RING_STYLE = b.comment("Ring look:",
+                        "SOLID = plain ring, SEGMENTED_ARC = counter-rotating arcs, RUNIC = subtle glyph pattern,",
+                        "ROTATING_RUNES = orbiting enchanting-table glyphs, MOTES = orbiting lights (no outline)")
+                .defineEnum("style", RingStyle.SOLID);
+        RING_ROTATION_SPEED = b.comment("Rotation speed of the animated styles in degrees per second (0 = static)")
+                .defineInRange("rotationSpeed", 20.0D, 0.0D, 360.0D);
         b.pop();
 
         b.push("marker");
@@ -247,6 +267,29 @@ public final class THConfig {
                 .defineInRange("speed", 0.3D, 0.05D, 1.0D);
         b.pop();
 
+        b.push("damageNumbers");
+        DAMAGE_ENABLED = b.comment("Show floating damage numbers when a mob is struck. Damage is read from the mob's health, so it works without any server mod.")
+                .define("enabled", false);
+        DAMAGE_ONLY_TARGET = b.comment("Only show numbers for the currently highlighted target")
+                .define("onlyTarget", false);
+        DAMAGE_MIN = b.comment("Smallest health change that gets a number")
+                .defineInRange("minDamage", 0.5D, 0.1D, 100.0D);
+        DAMAGE_RANGE = b.comment("Only watch mobs within this many blocks of you")
+                .defineInRange("range", 32.0D, 4.0D, 96.0D);
+        DAMAGE_DURATION = b.comment("How long a number stays, in ticks (24 = 1.2 s)")
+                .defineInRange("durationTicks", 24, 10, 80);
+        DAMAGE_SCALE = b.comment("Text size multiplier")
+                .defineInRange("scale", 1.0D, 0.25D, 4.0D);
+        DAMAGE_HEX = b.comment("Colour of normal hits, RRGGBB hex")
+                .define("hex", "FF6B5A", THConfig::isHex);
+        DAMAGE_BIG_PERCENT = b.comment("A hit of at least this percentage of the mob's maximum health counts as big and is drawn larger in the big-hit colour (0 = off)")
+                .defineInRange("bigHitPercent", 20, 0, 100);
+        DAMAGE_BIG_HEX = b.comment("Colour of big hits, RRGGBB hex")
+                .define("bigHex", "FFD040", THConfig::isHex);
+        DAMAGE_SHOW_HEALING = b.comment("Also show green numbers when a mob regains health")
+                .define("showHealing", false);
+        b.pop();
+
         SPEC = b.build();
     }
 
@@ -312,6 +355,15 @@ public final class THConfig {
             cachedReachHex = hex;
         }
         return cachedReachRgb;
+    }
+
+    /** Parses an RRGGBB hex string, or returns the fallback if it is not valid. */
+    public static int hexToRgb(String hex, int fallback) {
+        try {
+            return Integer.parseInt(hex, 16);
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 
     private THConfig() {

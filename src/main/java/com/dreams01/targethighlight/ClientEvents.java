@@ -56,11 +56,13 @@ public final class ClientEvents {
 
             TargetSelector.tick(mc);
             ZoomController.tick(mc);
+            DamageNumbers.tick(mc);
         }
 
         @SubscribeEvent
         public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
             TargetSelector.clear();
+            DamageNumbers.clear();
         }
     }
 }

@@ -1,7 +1,7 @@
 # target-highlight
 <img width="400" height="400" alt="image" src="https://github.com/user-attachments/assets/2601b091-5c1a-4d86-827c-ebcda8023832" />
 
-A small client-side Forge mod for Minecraft 1.20.1 that highlights the enemy nearest your crosshair with a soft ground ring and a marker above its head.
+A small client-side Forge mod for Minecraft 1.20.1 that highlights the enemy nearest your crosshair with a configurable ground ring and a marker above its head.
 
 # Features
 
@@ -14,6 +14,10 @@ A small client-side Forge mod for Minecraft 1.20.1 that highlights the enemy nea
 - In-reach indicator: the ring brightens or changes colour when the target is inside your real weapon reach
 - Optional weapon-only mode: the highlight appears only while you hold a weapon
 - Ranged mode: while you aim a bow, crossbow or trident, it searches farther with a narrower cone, scales with distance, and the ring follows your draw
+- Boss markers stay visible behind walls
+- Five ring styles for different themes: solid, segmented arcs, runic pattern, rotating enchanting-table runes, orbiting motes
+- Optional floating damage numbers (off by default)
+- Extras: health-tinted ring and zoom while drawing (on by default), optional name and health label (off by default)
 - Toggle keybind (unbound by default, set it under Controls > Target Highlight)
 - Client-side only: not needed on the server
 - Optional Better Combat support: if installed, the in-reach indicator uses each weapon's own attack range
@@ -52,6 +56,18 @@ It highlights only. It never moves your camera, changes your attacks, or alters 
 | ranged | `scaleWithDistance`, `maxScale` | `true`, `4.0` |
 | ranged | `chargeBrightness` | `true` |
 | ranged | `extraItems` (item ids or `modid:*`) | empty |
+| ring | `healthTint` | `true` |
+| ring | `style` (`SOLID`, `SEGMENTED_ARC`, `RUNIC`, `ROTATING_RUNES`, `MOTES`) | `SOLID` |
+| ring | `rotationSpeed` (degrees per second, 0 = static) | `20.0` |
+| marker | `throughWalls` (`OFF`, `BOSS`, `ALL`) | `BOSS` |
+| label | `enabled` | `false` |
+| label | `showName`, `showHealth` | `true`, `true` |
+| label | `healthFormat` (`VALUE`, `PERCENT`), `scale`, `height`, `seeThrough` | `VALUE`, `1.0`, `0.15`, `false` |
+| zoom | `enabled` | `true` |
+| zoom | `maxZoom`, `speed` | `2.0`, `0.3` |
+| damageNumbers | `enabled`, `onlyTarget`, `showHealing` | `false`, `false`, `false` |
+| damageNumbers | `minDamage`, `range`, `durationTicks`, `scale` | `0.5`, `32.0`, `24`, `1.0` |
+| damageNumbers | `hex`, `bigHitPercent`, `bigHex` | `FF6B5A`, `20`, `FFD040` |
 | ring | `enabled`, `padding`, `thickness`, `segments`, `yOffset` | `true`, `0.25`, `0.08`, `40`, `0.03` |
 | marker | `enabled`, `height`, `size` | `true`, `0.45`, `0.12` |
 | color | `hex`, `alpha` (normal enemies) | `FFD75A`, `100` |

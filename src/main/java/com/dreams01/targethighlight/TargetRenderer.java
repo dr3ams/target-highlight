@@ -19,20 +19,19 @@ import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
 
 /**
- * Draws the highlight for the current target: a flat ring under its feet, a small diamond above
- * its head that always faces the camera, and an optional text label above the diamond.
+ * Draws the highlight for the current target: a ring under its feet (several styles), a small diamond
+ * above its head that always faces the camera, and an optional text label above the diamond.
  *
  * The ring and marker use RenderType.lightning() (untextured, additive-ish, position+colour).
  * Every quad is emitted twice with reversed winding because that render type culls back faces.
- * If you'd rather have normal alpha blending, try RenderType.debugQuads() instead.
+ *
+ * Draw order matters: everything that writes into the lightning buffer comes first, text last,
+ * because requesting a text buffer ends the lightning batch.
  */
 @Mod.EventBusSubscriber(modid = TargetHighlightMod.MODID, value = Dist.CLIENT)
 public final class TargetRenderer {
-
-    private static final float[] QUAD = new float[12];
 
     private static final int HEALTH_LOW = 0xFF4040;
     private static final int HEALTH_MID = 0xFFD040;
@@ -111,20 +110,42 @@ public final class TargetRenderer {
             }
         }
 
-        if (ring) {
-            double radius = target.getBbWidth() * 0.5D + THConfig.RING_PADDING.get() * scale;
-            drawRing(vc, m, radius, THConfig.RING_THICKNESS.get() * scale, THConfig.RING_SEGMENTS.get(),
-                    THConfig.RING_Y_OFFSET.get().floatValue(),
-                    (ringRgb >> 16) & 0xFF, (ringRgb >> 8) & 0xFF, ringRgb & 0xFF, ringAlpha);
+        // Everything a ring style needs, filled once per frame
+        double seconds = ((mc.level != null ? mc.level.getGameTime() : 0L) + partial) / 20.0D;
+        RingContext ctx = new RingContext();
+        ctx.vc = vc;
+        ctx.m = m;
+        ctx.stack = stack;
+        ctx.camera = camera;
+        ctx.buffers = buffers;
+        ctx.mc = mc;
+        ctx.target = target;
+        ctx.radius = target.getBbWidth() * 0.5D + THConfig.RING_PADDING.get() * scale;
+        ctx.thickness = THConfig.RING_THICKNESS.get() * scale;
+        ctx.scale = scale;
+        ctx.spin = Math.toRadians(THConfig.RING_ROTATION_SPEED.get()) * seconds;
+        ctx.seconds = seconds;
+        ctx.partial = partial;
+        ctx.y = THConfig.RING_Y_OFFSET.get().floatValue();
+        ctx.segments = THConfig.RING_SEGMENTS.get();
+        ctx.r = (ringRgb >> 16) & 0xFF;
+        ctx.g = (ringRgb >> 8) & 0xFF;
+        ctx.b = ringRgb & 0xFF;
+        ctx.a = ringAlpha;
+
+        RingStyle style = THConfig.RING_STYLE.get();
+
+        // 1. geometry ring styles
+        if (ring && style != RingStyle.ROTATING_RUNES) {
+            RingStyles.drawGeometry(ctx, style);
         }
 
-        // The marker; its top edge is also where the label sits
+        // 2. the marker; its top edge is also where the label sits
         float markerTop = target.getBbHeight();
         boolean wallPass = false;
         if (marker) {
             float s = (float) scale;
-            float time = (mc.level != null ? mc.level.getGameTime() : 0L) + partial;
-            float bob = (float) Math.sin(time * 0.15F) * 0.05F * s;
+            float bob = (float) Math.sin((seconds * 20.0D) * 0.15D) * 0.05F * s;
             float cy = target.getBbHeight() + THConfig.MARKER_HEIGHT.get().floatValue() * s + bob;
             float size = THConfig.MARKER_SIZE.get().floatValue() * s;
 
@@ -134,13 +155,18 @@ public final class TargetRenderer {
                 markerConsumer = buffers.getBuffer(HighlightRenderTypes.markerThroughWalls());
                 wallPass = true;
             }
-            drawMarker(markerConsumer, m, camera, cy, size, r, g, b, a);
+            QuadWriter.billboardDiamond(markerConsumer, m, camera, 0.0F, cy, 0.0F, size, 1.5F, r, g, b, a);
             markerTop = cy + size * 1.5F;
         }
 
-        boolean labelDrawn = false;
+        // 3. text last: rotating runes and the label
+        boolean textDrawn = false;
+        if (ring && style == RingStyle.ROTATING_RUNES) {
+            RingStyles.drawRunes(ctx);
+            textDrawn = true;
+        }
         if (label) {
-            labelDrawn = drawLabel(mc, stack, camera, buffers, target, rgb, markerTop, scale);
+            textDrawn |= drawLabel(mc, stack, camera, buffers, target, rgb, markerTop, scale);
         }
 
         stack.popPose();
@@ -148,7 +174,7 @@ public final class TargetRenderer {
         if (wallPass) {
             buffers.endBatch(HighlightRenderTypes.markerThroughWalls());
         }
-        if (labelDrawn) {
+        if (textDrawn) {
             buffers.endBatch();
         }
     }
@@ -219,60 +245,5 @@ public final class TargetRenderer {
 
         stack.popPose();
         return true;
-    }
-
-    private static void drawRing(VertexConsumer vc, Matrix4f m, double radius, double thickness,
-                                 int segments, float y, int r, int g, int b, int a) {
-        double inner = Math.max(0.02D, radius - thickness);
-
-        for (int i = 0; i < segments; i++) {
-            double a0 = (Math.PI * 2.0D) * i / segments;
-            double a1 = (Math.PI * 2.0D) * (i + 1) / segments;
-            float c0 = (float) Math.cos(a0);
-            float s0 = (float) Math.sin(a0);
-            float c1 = (float) Math.cos(a1);
-            float s1 = (float) Math.sin(a1);
-
-            set(0, (float) (c0 * radius), y, (float) (s0 * radius));
-            set(1, (float) (c1 * radius), y, (float) (s1 * radius));
-            set(2, (float) (c1 * inner), y, (float) (s1 * inner));
-            set(3, (float) (c0 * inner), y, (float) (s0 * inner));
-            quad(vc, m, r, g, b, a);
-        }
-    }
-
-    /** Diamond centred above the head, built from the camera's own up/left vectors so it always faces the viewer. */
-    private static void drawMarker(VertexConsumer vc, Matrix4f m, Camera camera,
-                                   float centerY, float size, int r, int g, int b, int a) {
-        Vector3f left = camera.getLeftVector();
-        Vector3f up = camera.getUpVector();
-        float tall = size * 1.5F;
-
-        set(0, up.x() * tall, centerY + up.y() * tall, up.z() * tall);               // top
-        set(1, -left.x() * size, centerY - left.y() * size, -left.z() * size);       // right
-        set(2, -up.x() * tall, centerY - up.y() * tall, -up.z() * tall);             // bottom
-        set(3, left.x() * size, centerY + left.y() * size, left.z() * size);         // left
-        quad(vc, m, r, g, b, a);
-    }
-
-    private static void set(int index, float x, float y, float z) {
-        QUAD[index * 3] = x;
-        QUAD[index * 3 + 1] = y;
-        QUAD[index * 3 + 2] = z;
-    }
-
-    /** Emits the quad in QUAD[] front-facing and back-facing. */
-    private static void quad(VertexConsumer vc, Matrix4f m, int r, int g, int b, int a) {
-        for (int i = 0; i < 4; i++) {
-            vertex(vc, m, QUAD[i * 3], QUAD[i * 3 + 1], QUAD[i * 3 + 2], r, g, b, a);
-        }
-        for (int i = 3; i >= 0; i--) {
-            vertex(vc, m, QUAD[i * 3], QUAD[i * 3 + 1], QUAD[i * 3 + 2], r, g, b, a);
-        }
-    }
-
-    private static void vertex(VertexConsumer vc, Matrix4f m, float x, float y, float z,
-                               int r, int g, int b, int a) {
-        vc.vertex(m, x, y, z).color(r, g, b, a).endVertex();
     }
 }

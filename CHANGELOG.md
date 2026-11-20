@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0
+- Ring styles (`ring.style`): `SOLID` (default), `SEGMENTED_ARC`, `RUNIC`, `ROTATING_RUNES` and `MOTES`.
+- `SEGMENTED_ARC`: curved arcs on two layers that slowly counter-rotate.
+- `RUNIC`: a subtle pattern of glyph strokes between two thin circles.
+- `ROTATING_RUNES`: enchanting-table (Standard Galactic) glyphs orbiting the ring.
+- `MOTES`: no outline, just small glowing lights orbiting the footprint.
+- `rotationSpeed` controls the animated styles. The styles keep a fixed default look, so `style` and `rotationSpeed` are the only ring-style options. All styles keep working with health tint, tiers, in-reach and draw-progress colours.
+- Floating damage numbers when a mob is struck (`[damageNumbers]`, off by default). Damage is read from the mob's health, so it works without a server mod. Big hits are drawn larger in their own colour, and healing can optionally show too.
+
 ## 0.5.0
 - Boss markers stay visible behind walls (`marker.throughWalls`: `OFF`, `BOSS` by default, or `ALL`).
 - Health-tinted ring: green at full health, through yellow, to red when low (`ring.healthTint`, on by default).
