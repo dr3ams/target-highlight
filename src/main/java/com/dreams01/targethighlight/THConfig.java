@@ -51,17 +51,33 @@ public final class THConfig {
     public static final ForgeConfigSpec.BooleanValue RANGED_CHARGE_BRIGHTNESS;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> RANGED_EXTRA_ITEMS;
 
+    // --- label ---
+    public static final ForgeConfigSpec.BooleanValue LABEL_ENABLED;
+    public static final ForgeConfigSpec.BooleanValue LABEL_SHOW_NAME;
+    public static final ForgeConfigSpec.BooleanValue LABEL_SHOW_HEALTH;
+    public static final ForgeConfigSpec.EnumValue<LabelHealthFormat> LABEL_HEALTH_FORMAT;
+    public static final ForgeConfigSpec.DoubleValue LABEL_SCALE;
+    public static final ForgeConfigSpec.DoubleValue LABEL_HEIGHT;
+    public static final ForgeConfigSpec.BooleanValue LABEL_SEE_THROUGH;
+
+    // --- zoom ---
+    public static final ForgeConfigSpec.BooleanValue ZOOM_ENABLED;
+    public static final ForgeConfigSpec.DoubleValue ZOOM_MAX;
+    public static final ForgeConfigSpec.DoubleValue ZOOM_SPEED;
+
     // --- ground ring ---
     public static final ForgeConfigSpec.BooleanValue RING_ENABLED;
     public static final ForgeConfigSpec.DoubleValue RING_PADDING;
     public static final ForgeConfigSpec.DoubleValue RING_THICKNESS;
     public static final ForgeConfigSpec.IntValue RING_SEGMENTS;
     public static final ForgeConfigSpec.DoubleValue RING_Y_OFFSET;
+    public static final ForgeConfigSpec.BooleanValue RING_HEALTH_TINT;
 
     // --- head marker ---
     public static final ForgeConfigSpec.BooleanValue MARKER_ENABLED;
     public static final ForgeConfigSpec.DoubleValue MARKER_HEIGHT;
     public static final ForgeConfigSpec.DoubleValue MARKER_SIZE;
+    public static final ForgeConfigSpec.EnumValue<ThroughWalls> MARKER_THROUGH_WALLS;
 
     // --- colours (normal tier keeps the original key names) ---
     public static final ForgeConfigSpec.ConfigValue<String> COLOR_HEX;
@@ -124,6 +140,9 @@ public final class THConfig {
                 .defineInRange("segments", 40, 8, 128);
         RING_Y_OFFSET = b.comment("Blocks above the target's feet")
                 .defineInRange("yOffset", 0.03D, 0.0D, 1.0D);
+        RING_HEALTH_TINT = b.comment("Tint the ring from green (full health) through yellow to red (low health) instead of using the tier colour.",
+                        "While the target is in reach, inReach mode COLOR still overrides this colour.")
+                .define("healthTint", true);
         b.pop();
 
         b.push("marker");
@@ -133,6 +152,8 @@ public final class THConfig {
                 .defineInRange("height", 0.45D, 0.0D, 4.0D);
         MARKER_SIZE = b.comment("Marker half-width in blocks")
                 .defineInRange("size", 0.12D, 0.02D, 1.0D);
+        MARKER_THROUGH_WALLS = b.comment("Which markers stay visible behind obstacles: OFF, BOSS (bosses only) or ALL")
+                .defineEnum("throughWalls", ThroughWalls.BOSS);
         b.pop();
 
         b.push("color");
@@ -197,6 +218,33 @@ public final class THConfig {
         RANGED_EXTRA_ITEMS = b.comment("Extra item ids treated as ranged weapons, such as spell casters or modded launchers. Item ids, or \"modid:*\". They count as aiming while the item is in use.",
                         "Example: [\"ars_nouveau:novice_spell_book\", \"somemod:*\"]")
                 .<String>defineListAllowEmpty("extraItems", List.of(), THConfig::isString);
+        b.pop();
+
+        b.push("label");
+        LABEL_ENABLED = b.comment("Show a small text label above the marker with the target's name and health")
+                .define("enabled", false);
+        LABEL_SHOW_NAME = b.comment("Include the target's name")
+                .define("showName", true);
+        LABEL_SHOW_HEALTH = b.comment("Include the target's health")
+                .define("showHealth", true);
+        LABEL_HEALTH_FORMAT = b.comment("VALUE = 14/20, PERCENT = 70%")
+                .defineEnum("healthFormat", LabelHealthFormat.VALUE);
+        LABEL_SCALE = b.comment("Text size multiplier (it also grows with distance in ranged mode)")
+                .defineInRange("scale", 1.0D, 0.25D, 4.0D);
+        LABEL_HEIGHT = b.comment("Blocks between the top of the marker (or the head, if the marker is off) and the label")
+                .defineInRange("height", 0.15D, 0.0D, 3.0D);
+        LABEL_SEE_THROUGH = b.comment("Draw the label through walls")
+                .define("seeThrough", false);
+        b.pop();
+
+        b.push("zoom");
+        ZOOM_ENABLED = b.comment("Zoom the view while drawing a bow, charging a crossbow or winding up a trident")
+                .define("enabled", true);
+        ZOOM_MAX = b.comment("Zoom factor at full draw (1.5 = field of view divided by 1.5). Stacks with vanilla's small bow zoom. "
+                        + "Mouse sensitivity is not changed, so high values make aiming touchy.")
+                .defineInRange("maxZoom", 2.0D, 1.0D, 4.0D);
+        ZOOM_SPEED = b.comment("How fast the zoom follows the draw, as a fraction of the remaining distance per tick (higher = snappier)")
+                .defineInRange("speed", 0.3D, 0.05D, 1.0D);
         b.pop();
 
         SPEC = b.build();

@@ -55,6 +55,7 @@ public final class ClientEvents {
             }
 
             TargetSelector.tick(mc);
+            ZoomController.tick(mc);
         }
 
         @SubscribeEvent

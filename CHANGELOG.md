@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+- Boss markers stay visible behind walls (`marker.throughWalls`: `OFF`, `BOSS` by default, or `ALL`).
+- Health-tinted ring: green at full health, through yellow, to red when low (`ring.healthTint`, on by default).
+- Optional text label above the marker with the target's name and health (`[label]`, off by default): name and health toggles, `VALUE` or `PERCENT` format, size, height and see-through options.
+- Zoom while drawing a bow, charging a crossbow or winding up a trident (`[zoom]`, on by default, maximum factor 2.0), with an easing speed.
+
 ## 0.4.0
 - Ranged mode: while you aim a bow, crossbow or trident (or a listed item), the highlight searches farther with a narrower cone.
 - Activates while aiming (drawing, charging, or holding a loaded crossbow), with a short linger so it doesn't flicker. `trigger = HOLDING` makes it work whenever a ranged weapon is held.

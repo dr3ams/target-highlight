@@ -67,7 +67,8 @@ public final class RangedCheck {
         return 1.0F;
     }
 
-    private static boolean isUsingMainHand(Player player) {
+    /** True while the main-hand item is being used (drawing, charging, winding up). */
+    public static boolean isUsingMainHand(Player player) {
         return player.isUsingItem() && player.getUsedItemHand() == InteractionHand.MAIN_HAND;
     }
 }
